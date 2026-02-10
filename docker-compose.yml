@@ -1,0 +1,11 @@
+services:
+  agent:
+    build: .
+    container_name: modera-dental-agent
+    env_file:
+      - .env.local
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G

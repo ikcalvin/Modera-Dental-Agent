@@ -1,0 +1,27 @@
+# Version control
+.git
+.gitignore
+
+# Python virtual environments
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Environment files (secrets — mounted at runtime)
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Misc
+KMS/
+README.md
+DEPLOY_GCP.md
+.agent/
+.gemini/

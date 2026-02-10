@@ -39,3 +39,6 @@ ENV/
 # LiveKit
 .livekit/
 livekit_models/
+
+# Docker
+docker-compose.override.yml
