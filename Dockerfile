@@ -5,6 +5,9 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
+# Keep model downloads inside /app so they survive the multi-stage copy
+ENV HF_HOME=/app/.cache/huggingface
+
 # Install dependencies first (layer caching)
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
@@ -28,7 +31,10 @@ RUN groupadd --gid 1000 app && \
 
 WORKDIR /app
 
-# Copy virtual environment and app files from builder
+# Model cache location must match the builder stage
+ENV HF_HOME=/app/.cache/huggingface
+
+# Copy virtual environment, app files, and model cache from builder
 COPY --from=builder --chown=app:app /app /app
 
 USER app
