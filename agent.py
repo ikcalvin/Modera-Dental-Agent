@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import Literal
 
@@ -6,6 +7,7 @@ from dotenv import load_dotenv
 
 from livekit import agents, rtc
 from livekit.agents import AgentServer, AgentSession, Agent, room_io, function_tool
+from livekit.agents.beta.tools import EndCallTool
 from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
@@ -98,7 +100,13 @@ class Assistant(Agent):
     def __init__(self) -> None:
         super().__init__(
             instructions=INSTRUCTIONS,
-            tools=[create_appointment],
+            tools=[
+                create_appointment,
+                EndCallTool(
+                    end_instructions="Thank the caller warmly for calling Modera Dental Clinic and wish them a great day.",
+                    delete_room=True,
+                ),
+            ],
         )
 
 
@@ -130,6 +138,41 @@ async def my_agent(ctx: agents.JobContext):
     await session.generate_reply(
         instructions="Greet the caller warmly as the Modera Dental Clinic virtual assistant and ask how you can help them today."
     )
+
+    # --- Inactivity monitor ---
+    IDLE_TIMEOUT = 15  # seconds of silence before prompting
+    idle_prompt_count = 0
+
+    async def _inactivity_watcher():
+        nonlocal idle_prompt_count
+        while True:
+            await asyncio.sleep(IDLE_TIMEOUT)
+            idle_prompt_count += 1
+            if idle_prompt_count == 1:
+                await session.generate_reply(
+                    instructions="The caller has been silent for a while. Gently ask if they are still there."
+                )
+            elif idle_prompt_count >= 2:
+                await session.generate_reply(
+                    instructions="The caller has not responded after being asked. Say goodbye politely and end the call."
+                )
+                break
+
+    watcher_task = asyncio.create_task(_inactivity_watcher())
+
+    @session.on("user_input_transcribed")
+    def _on_user_speech(ev):
+        nonlocal idle_prompt_count
+        if ev.is_final:
+            idle_prompt_count = 0
+            # restart the watcher
+            watcher_task.cancel()
+
+    @session.on("user_input_transcribed")
+    def _restart_watcher(ev):
+        nonlocal watcher_task
+        if ev.is_final:
+            watcher_task = asyncio.create_task(_inactivity_watcher())
 
 
 if __name__ == "__main__":
