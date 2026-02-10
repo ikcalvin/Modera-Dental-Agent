@@ -1,4 +1,5 @@
 import asyncio
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -18,7 +19,7 @@ PROMPT_FILE = Path(__file__).parent / "prompt.md"
 INSTRUCTIONS = PROMPT_FILE.read_text(encoding="utf-8")
 
 # Webhook endpoint for appointment creation
-APPOINTMENT_WEBHOOK_URL = "https://kcalvin.myvnc.com/webhook-test/create_appointment"
+APPOINTMENT_WEBHOOK_URL = os.environ.get("APPOINTMENT_WEBHOOK_URL", "")
 
 # Valid service types based on clinic offerings
 ServiceType = Literal[
