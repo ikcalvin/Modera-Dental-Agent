@@ -212,15 +212,21 @@ async def my_agent(ctx: agents.JobContext):
         nonlocal idle_prompt_count
         while True:
             await asyncio.sleep(IDLE_TIMEOUT)
+            if ctx.room.state != rtc.RoomState.ROOM_STATE_CONNECTED:
+                break
+
             idle_prompt_count += 1
-            if idle_prompt_count == 1:
-                await session.generate_reply(
-                    instructions="The caller has been silent for a while. Gently ask if they are still there."
-                )
-            elif idle_prompt_count >= 2:
-                await session.generate_reply(
-                    instructions="The caller has not responded after being asked. Say goodbye politely and end the call."
-                )
+            try:
+                if idle_prompt_count == 1:
+                    await session.generate_reply(
+                        instructions="The caller has been silent for a while. Gently ask if they are still there."
+                    )
+                elif idle_prompt_count >= 2:
+                    await session.generate_reply(
+                        instructions="The caller has not responded after being asked. Say goodbye politely and end the call."
+                    )
+                    break
+            except RuntimeError:
                 break
 
     watcher_task = asyncio.create_task(_inactivity_watcher())
