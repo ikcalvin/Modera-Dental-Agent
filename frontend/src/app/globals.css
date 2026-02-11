@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+:root {
+  --background: #020617; /* Slate 950 */
+  --foreground: #f8fafc; /* Slate 50 */
+
+  --primary: #0f766e; /* Teal 700 */
+  --primary-foreground: #ffffff;
+
+  --secondary: #1e293b; /* Slate 800 */
+  --secondary-foreground: #f8fafc;
+
+  --accent: #2dd4bf; /* Teal 400 */
+  --accent-foreground: #020617;
+
+  --muted: #334155; /* Slate 700 */
+  --muted-foreground: #94a3b8; /* Slate 400 */
+
+  --card: #0f172a; /* Slate 900 */
+  --card-foreground: #f8fafc;
+
+  --radius: 0.5rem;
+}
+
+/* @theme {
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+} */
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+.glass {
+  background: rgba(15, 23, 42, 0.6);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-card {
+  background: rgba(30, 41, 59, 0.4);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.agent-visualizer {
+  --lk-fg: #2dd4bf;
+}
+
+.agent-visualizer .lk-audio-bar {
+  width: 12px;
+}
