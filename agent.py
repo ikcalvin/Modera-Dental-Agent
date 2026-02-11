@@ -27,6 +27,9 @@ APPOINTMENT_WEBHOOK_URL = os.environ.get("APPOINTMENT_WEBHOOK_URL", "")
 
 # Phone number the agent transfers callers to when escalating to a human
 CLINIC_TRANSFER_NUMBER = os.environ.get("CLINIC_TRANSFER_NUMBER", "")
+if CLINIC_TRANSFER_NUMBER and not CLINIC_TRANSFER_NUMBER.startswith(("tel:", "sip:")):
+    CLINIC_TRANSFER_NUMBER = f"tel:{CLINIC_TRANSFER_NUMBER}"
+
 if not CLINIC_TRANSFER_NUMBER:
     logger.warning("CLINIC_TRANSFER_NUMBER not configured — transfers will fail")
 
