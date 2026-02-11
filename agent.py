@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from pathlib import Path
 from typing import Literal
@@ -6,11 +7,14 @@ from typing import Literal
 import httpx
 from dotenv import load_dotenv
 
-from livekit import agents, rtc
+from livekit import api, agents, rtc
 from livekit.agents import AgentServer, AgentSession, Agent, room_io, function_tool
 from livekit.agents.beta.tools import EndCallTool
 from livekit.plugins import noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.protocol.sip import TransferSIPParticipantRequest
+
+logger = logging.getLogger("modera-dental")
 
 load_dotenv(".env.local")
 
@@ -20,6 +24,12 @@ INSTRUCTIONS = PROMPT_FILE.read_text(encoding="utf-8")
 
 # Webhook endpoint for appointment creation
 APPOINTMENT_WEBHOOK_URL = os.environ.get("APPOINTMENT_WEBHOOK_URL", "")
+
+# Phone number the agent transfers callers to when escalating to a human
+CLINIC_TRANSFER_NUMBER = os.environ.get("CLINIC_TRANSFER_NUMBER", "")
+
+# Human-readable phone number for fallback messages
+CLINIC_PHONE_DISPLAY = os.environ.get("CLINIC_PHONE_DISPLAY", "the clinic")
 
 # Valid service types based on clinic offerings
 ServiceType = Literal[
@@ -92,23 +102,76 @@ async def create_appointment(
             response.raise_for_status()
             return f"Appointment successfully scheduled for {full_name} on {datetime}. A confirmation will be sent to {phone}."
     except httpx.HTTPStatusError as e:
-        return f"I apologize, but I was unable to complete the booking at this moment. Please try again or call us directly at (305) 485-8427. Error: {e.response.status_code}"
+        return f"I apologize, but I was unable to complete the booking at this moment. Please try again or call us directly at {CLINIC_PHONE_DISPLAY}. Error: {e.response.status_code}"
     except Exception as e:
-        return f"I apologize, but there was an issue scheduling the appointment. Please call us directly at (305) 485-8427 to complete your booking."
+        return f"I apologize, but there was an issue scheduling the appointment. Please call us directly at {CLINIC_PHONE_DISPLAY} to complete your booking."
 
 
 class Assistant(Agent):
-    def __init__(self) -> None:
+    def __init__(self, room: rtc.Room) -> None:
+        self._room = room
         super().__init__(
             instructions=INSTRUCTIONS,
             tools=[
                 create_appointment,
+                self._transfer_to_human,
                 EndCallTool(
                     end_instructions="Thank the caller warmly for calling Modera Dental Clinic and wish them a great day.",
                     delete_room=True,
                 ),
             ],
         )
+
+    @function_tool()
+    async def _transfer_to_human(self, reason: str) -> str:
+        """Transfer the caller to a live staff member at Modera Dental Clinic.
+
+        Use this tool when:
+        - The caller explicitly asks to speak to a real person
+        - The situation requires human judgment (billing disputes, complaints, complex medical questions)
+        - You are unable to help the caller after multiple attempts
+        - There is a medical emergency that needs immediate human attention
+
+        Before calling this tool, let the caller know you are transferring them.
+
+        Args:
+            reason: Brief description of why the transfer is needed
+
+        Returns:
+            A status message about the transfer
+        """
+        # Find the SIP participant (the caller) in the room
+        sip_participant = None
+        for p in self._room.remote_participants.values():
+            if p.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP:
+                sip_participant = p
+                break
+
+        if sip_participant is None:
+            logger.warning("No SIP participant found — cannot transfer")
+            return (
+                "I'm sorry, I'm unable to transfer the call right now. "
+                f"Please call us directly at {CLINIC_PHONE_DISPLAY}."
+            )
+
+        try:
+            async with api.LiveKitAPI() as lk:
+                await lk.sip.transfer_sip_participant(
+                    TransferSIPParticipantRequest(
+                        room_name=self._room.name,
+                        participant_identity=sip_participant.identity,
+                        transfer_to=CLINIC_TRANSFER_NUMBER,
+                        play_dialtone=True,
+                    )
+                )
+            logger.info(f"Transferred caller to {CLINIC_TRANSFER_NUMBER} — reason: {reason}")
+            return "The call is being transferred to the front desk now."
+        except Exception as e:
+            logger.error(f"Transfer failed: {e}")
+            return (
+                "I'm sorry, I wasn't able to complete the transfer. "
+                f"Please call us directly at {CLINIC_PHONE_DISPLAY}."
+            )
 
 
 server = AgentServer()
@@ -126,7 +189,7 @@ async def my_agent(ctx: agents.JobContext):
 
     await session.start(
         room=ctx.room,
-        agent=Assistant(),
+        agent=Assistant(room=ctx.room),
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
                 noise_cancellation=lambda params: noise_cancellation.BVCTelephony()
