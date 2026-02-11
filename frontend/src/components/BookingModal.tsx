@@ -287,15 +287,35 @@ export default function BookingModal({ isOpen, onClose }: BookingModalProps) {
                       onChange={(e) => {
                         const selectedDate = new Date(e.target.value);
                         const now = new Date();
-                        if (selectedDate < now) {
-                          setErrorMessage(
-                            "Please select a future date and time.",
-                          );
-                          setStatus("error");
-                        } else {
-                          setErrorMessage("");
-                          setStatus("idle");
+
+                        // Check if specific time is selected (not just valid date string)
+                        if (!isNaN(selectedDate.getTime())) {
+                          const day = selectedDate.getDay();
+                          const hours = selectedDate.getHours();
+                          const minutes = selectedDate.getMinutes();
+                          const timeValue = hours + minutes / 60;
+
+                          if (selectedDate < now) {
+                            setErrorMessage(
+                              "Please select a future date and time.",
+                            );
+                            setStatus("error");
+                          } else if (day === 0 || day === 6) {
+                            setErrorMessage(
+                              "We are closed on weekends. Please choose a weekday.",
+                            );
+                            setStatus("error");
+                          } else if (timeValue < 9.5 || timeValue >= 17) {
+                            setErrorMessage(
+                              "Our hours are Mon-Fri, 9:30 AM - 5:00 PM.",
+                            );
+                            setStatus("error");
+                          } else {
+                            setErrorMessage("");
+                            setStatus("idle");
+                          }
                         }
+
                         handleChange(e);
                       }}
                       onClick={(e) =>
