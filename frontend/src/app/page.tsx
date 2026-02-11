@@ -4,9 +4,11 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Phone, Calendar, Globe, ShieldCheck, Clock } from "lucide-react";
 import AgentModal from "@/components/AgentModal";
+import BookingModal from "@/components/BookingModal";
 
 export default function Home() {
   const [isAgentOpen, setIsAgentOpen] = useState(false);
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
 
   return (
     <main className="min-h-screen bg-[#020617] text-white selection:bg-teal-500/30">
@@ -20,7 +22,7 @@ export default function Home() {
             </span>
           </div>
           <button
-            onClick={() => setIsAgentOpen(true)}
+            onClick={() => setIsBookingOpen(true)}
             className="hidden rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10 sm:block transition-colors"
           >
             Client Portal
@@ -73,7 +75,10 @@ export default function Home() {
               />
               Speak to Receptionist
             </button>
-            <button className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-8 py-3.5 text-sm font-semibold hover:bg-white/10 transition-colors">
+            <button
+              onClick={() => setIsBookingOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-8 py-3.5 text-sm font-semibold hover:bg-white/10 transition-colors"
+            >
               <Calendar size={18} />
               Book Online
             </button>
@@ -138,6 +143,10 @@ export default function Home() {
       </footer>
 
       <AgentModal isOpen={isAgentOpen} onClose={() => setIsAgentOpen(false)} />
+      <BookingModal
+        isOpen={isBookingOpen}
+        onClose={() => setIsBookingOpen(false)}
+      />
     </main>
   );
 }
