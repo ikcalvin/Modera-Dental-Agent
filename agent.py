@@ -27,10 +27,11 @@ APPOINTMENT_WEBHOOK_URL = os.environ.get("APPOINTMENT_WEBHOOK_URL", "")
 
 # Phone number the agent transfers callers to when escalating to a human
 CLINIC_TRANSFER_NUMBER = os.environ.get("CLINIC_TRANSFER_NUMBER", "")
+if not CLINIC_TRANSFER_NUMBER:
+    logger.warning("CLINIC_TRANSFER_NUMBER not configured — transfers will fail")
 
 # Human-readable phone number for fallback messages
 CLINIC_PHONE_DISPLAY = os.environ.get("CLINIC_PHONE_DISPLAY", "the clinic")
-
 # Valid service types based on clinic offerings
 ServiceType = Literal[
     "Orthodontics Consultation",
@@ -114,7 +115,7 @@ class Assistant(Agent):
             instructions=INSTRUCTIONS,
             tools=[
                 create_appointment,
-                self._transfer_to_human,
+
                 EndCallTool(
                     end_instructions="Thank the caller warmly for calling Modera Dental Clinic and wish them a great day.",
                     delete_room=True,
