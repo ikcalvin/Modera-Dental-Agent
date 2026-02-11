@@ -111,6 +111,25 @@ To receive real phone calls, connect a Twilio SIP trunk to LiveKit:
 
 For detailed instructions, see the [LiveKit Twilio SIP Setup Guide](https://docs.livekit.io/sip/quickstarts/configuring-twilio-trunk).
 
+### Call Transfer Configuration (Crucial!)
+
+To enable the agent to transfer calls to a human line, you **must** configure the following in your Twilio Console:
+
+1.  **Enable SIP REFER**:
+    - Go to **Elastic SIP Trunking** > **Trunks** > **[Your Trunk]** > **General** (or **Signalling**).
+    - Ensure **"Call Transfer (SIP REFER)"** is **Enabled**.
+    - Ensure **"Enable PSTN Transfer"** is **Checked**.
+
+2.  **Enable Geographic Permissions**:
+    - If transferring to international numbers (including some +1 countries like Jamaica), go to **Voice** > **Settings** > **[Geo Permissions](https://console.twilio.com/us1/develop/voice/settings/geo-permissions)**.
+    - **Enable** permissions for the destination country (e.g., Jamaica +1 876).
+
+3.  **Caller ID**:
+    - In Trunk settings, ensure "Caller ID Validation" allows the transfer or is set to `Set caller ID as Transferee`.
+
+4.  **Number Format**:
+    - Ensure `CLINIC_TRANSFER_NUMBER` in `.env.local` is in **E.164 format** (e.g., `+13055550123`). The agent will automatically handle the `tel:` prefix.
+
 ## Appointment Webhook
 
 When the agent books an appointment, it sends a POST request to `APPOINTMENT_WEBHOOK_URL` with this payload:
