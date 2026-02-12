@@ -114,8 +114,14 @@ async def create_appointment(
 class Assistant(Agent):
     def __init__(self, room: rtc.Room) -> None:
         self._room = room
+        
+        # Dynamic context for the agent
+        from datetime import datetime
+        current_time_str = datetime.now().strftime("%A, %B %d, %Y, at %I:%M %p")
+        dynamic_instructions = f"{INSTRUCTIONS}\n\n## Current Time Context\n\nThe current date and time is: {current_time_str}.\nUse this as 'today' for all scheduling. If a user says 'tomorrow' or 'next Tuesday', calculate the date relative to this timestamp."
+
         super().__init__(
-            instructions=INSTRUCTIONS,
+            instructions=dynamic_instructions,
             tools=[
                 create_appointment,
 
