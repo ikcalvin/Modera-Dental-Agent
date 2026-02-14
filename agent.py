@@ -23,7 +23,11 @@ PROMPT_FILE = Path(__file__).parent / "prompt.md"
 INSTRUCTIONS = PROMPT_FILE.read_text(encoding="utf-8")
 
 # Webhook endpoint for appointment creation
+# Webhook endpoint for appointment creation
 APPOINTMENT_WEBHOOK_URL = os.environ.get("APPOINTMENT_WEBHOOK_URL", "")
+RESCHEDULE_WEBHOOK_URL = os.environ.get("RESCHEDULE_WEBHOOK_URL", "")
+CANCEL_WEBHOOK_URL = os.environ.get("CANCEL_WEBHOOK_URL", "")
+LOOKUP_WEBHOOK_URL = os.environ.get("LOOKUP_WEBHOOK_URL", "")
 
 # Phone number the agent transfers callers to when escalating to a human
 CLINIC_TRANSFER_NUMBER = os.environ.get("CLINIC_TRANSFER_NUMBER", "")
@@ -51,6 +55,19 @@ ServiceType = Literal[
 UrgencyLevel = Literal["Low", "Medium", "High"]
 
 
+def _format_phone(phone: str) -> str:
+    """Format phone number to (XXX) XXX-XXXX"""
+    # Remove all non-digit characters
+    digits = "".join(filter(str.isdigit, phone))
+    # If we have 11 digits starting with 1, remove the 1
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+    
+    if len(digits) == 10:
+        return f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+    return phone
+
+
 @function_tool()
 async def create_appointment(
     full_name: str,
@@ -70,7 +87,7 @@ async def create_appointment(
 
     Args:
         full_name: The patient's full name (first and last name)
-        phone: The patient's phone number with country code (e.g., +1305xxxxxxx)
+        phone: The patient's phone number with country code (e.g., 305xxxxxxx)
         email: The patient's email address
         is_new_customer: True if this is a new patient, False if they are an existing patient
         service_type: The type of appointment service requested
@@ -86,7 +103,7 @@ async def create_appointment(
         "args": {
             "customer": {
                 "full_name": full_name,
-                "phone": phone,
+                "phone": _format_phone(phone),
                 "email": email,
                 "is_new_customer": is_new_customer,
             },
@@ -111,6 +128,119 @@ async def create_appointment(
         return f"I apologize, but there was an issue scheduling the appointment. Please call us directly at {CLINIC_PHONE_DISPLAY} to complete your booking."
 
 
+@function_tool()
+async def lookup_appointment(
+    full_name: str,
+    phone: str,
+) -> str:
+    """
+    Look up an existing appointment for a patient.
+
+    Args:
+        full_name: The patient's full name
+        phone: The patient's phone number (10 digits, e.g., 3051234567)
+
+    Returns:
+        Details of the found appointment(s) or a message indicating no appointment was found.
+    """
+    params = {
+        "full_name": full_name,
+        "phone": _format_phone(phone),
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(LOOKUP_WEBHOOK_URL, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            if isinstance(data, list) and data:
+                 results = []
+                 for item in data:
+                     # Handle nested appointments list (new format)
+                     if "appointments" in item and isinstance(item["appointments"], list):
+                         for apt in item["appointments"]:
+                             results.append(f"- ID {apt.get('appointment_id')}: {apt.get('service_type')} on {apt.get('date')} at {apt.get('time')}")
+                     # Handle flat list (previous format fallback)
+                     elif "appointment_id" in item:
+                         results.append(f"- ID {item.get('appointment_id')}: {item.get('service_type')} on {item.get('date')} at {item.get('time')}")
+                 
+                 if results:
+                     return "Found the following appointments:\n" + "\n".join(results)
+                 else:
+                     return "I found your patient record, but I don't see any upcoming appointments."
+            elif isinstance(data, list) and not data:
+                 return "I couldn't find any appointments with those details."
+            
+            # Fallback for structured object or unexpected format
+            return data.get("message", f"Found appointment: {data}")
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            return "I couldn't find an appointment with those details."
+        return f"I encountered an error looking up the appointment. Error: {e.response.status_code}"
+    except Exception:
+        return "I apologize, but I'm having trouble accessing the appointment records right now."
+
+
+@function_tool()
+async def reschedule_appointment(
+    appointment_id: str,
+    new_datetime: str,
+) -> str:
+    """
+    Reschedule an existing appointment to a new date and time.
+
+    Args:
+        appointment_id: The ID of the appointment to reschedule (returned from lookup_appointment)
+        new_datetime: The new date and time in ISO format (e.g., 2026-02-15T14:00)
+
+    Returns:
+        A confirmation message of the rescheduling.
+    """
+    payload = {
+        "appointment_id": appointment_id,
+        "new_datetime": new_datetime,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.put(RESCHEDULE_WEBHOOK_URL, json=payload)
+            response.raise_for_status()
+            return f"Appointment successfully rescheduled to {new_datetime}. A new confirmation will be sent."
+    except httpx.HTTPStatusError as e:
+        return f"I failed to reschedule the appointment. Error: {e.response.status_code}"
+    except Exception:
+        return "I apologize, but I was unable to reschedule the appointment at this time."
+
+
+@function_tool()
+async def cancel_appointment(
+    appointment_id: str,
+) -> str:
+    """
+    Cancel an existing appointment.
+
+    Args:
+        appointment_id: The ID of the appointment to cancel (returned from lookup_appointment)
+
+    Returns:
+        A confirmation message of the cancellation.
+    """
+    payload = {
+        "appointment_id": appointment_id,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(CANCEL_WEBHOOK_URL, json=payload)
+            response.raise_for_status()
+            return "Appointment successfully cancelled."
+    except httpx.HTTPStatusError as e:
+        return f"I failed to cancel the appointment. Error: {e.response.status_code}"
+    except Exception:
+        return "I apologize, but I was unable to cancel the appointment at this time."
+
+
 class Assistant(Agent):
     def __init__(self, room: rtc.Room) -> None:
         self._room = room
@@ -124,6 +254,9 @@ class Assistant(Agent):
             instructions=dynamic_instructions,
             tools=[
                 create_appointment,
+                lookup_appointment,
+                reschedule_appointment,
+                cancel_appointment,
 
                 EndCallTool(
                     end_instructions="Thank the caller warmly for calling Modera Dental Clinic and wish them a great day.",
