@@ -20,7 +20,7 @@ gcloud compute instances create modera-dental-agent \
   --tags=http-server
 ```
 
-> **Note:** `e2-small` (2 vCPU, 2 GB RAM) is recommended. For tighter budgets, `e2-micro` works but enable swap (see below).
+> **Note:** `e2-small` (2 vCPU, 2 GB RAM) is recommended. The agent requires significant memory for AI models. If using `e2-micro`, you **MUST** enable swap.
 
 ## 2. SSH into the VM
 
