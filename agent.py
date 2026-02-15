@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from livekit import api, agents, rtc
 from livekit.agents import AgentServer, AgentSession, Agent, room_io, function_tool
 from livekit.agents.beta.tools import EndCallTool
-from livekit.plugins import noise_cancellation, silero, deepgram
+from livekit.plugins import noise_cancellation, silero, deepgram, google
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from livekit.protocol.sip import TransferSIPParticipantRequest
 
@@ -22,7 +22,6 @@ load_dotenv(".env.local")
 PROMPT_FILE = Path(__file__).parent / "prompt.md"
 INSTRUCTIONS = PROMPT_FILE.read_text(encoding="utf-8")
 
-# Webhook endpoint for appointment creation
 # Webhook endpoint for appointment creation
 APPOINTMENT_WEBHOOK_URL = os.environ.get("APPOINTMENT_WEBHOOK_URL", "")
 RESCHEDULE_WEBHOOK_URL = os.environ.get("RESCHEDULE_WEBHOOK_URL", "")
@@ -326,7 +325,9 @@ async def my_agent(ctx: agents.JobContext):
         stt=deepgram.STT(
             model="nova-3",
         ),
-        llm="openai/gpt-4.1-mini",
+        llm=google.LLM(
+            model="gemini-3-flash-preview",
+        ),
         tts=deepgram.TTS(
             model="aura-2-thalia-en",
         ),
