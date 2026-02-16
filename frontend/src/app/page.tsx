@@ -418,6 +418,18 @@ export default function Home() {
             +1 443 252 8250
           </a>
           <p>&copy; 2026 Modera Dental Clinic. All rights reserved.</p>
+
+          <div className="mt-4 pt-4 border-t border-white/5 w-full max-w-xs">
+            <p className="text-xs text-slate-600">
+              Note to visitors: This is a demo.
+            </p>
+            <a
+              href="mailto:contact@example.com?subject=Inquiry%20about%20AI%20Agents"
+              className="mt-2 block text-xs text-teal-500/60 hover:text-teal-400 transition-colors"
+            >
+              Want an AI agent like this? Contact the developer.
+            </a>
+          </div>
         </div>
       </footer>
 
