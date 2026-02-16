@@ -316,7 +316,11 @@ class Assistant(Agent):
             )
 
 
-server = AgentServer()
+def setup(proc: agents.JobProcess):
+    proc.userdata["vad"] = silero.VAD.load()
+
+
+server = AgentServer(setup_fnc=setup)
 
 
 @server.rtc_session()
@@ -331,7 +335,7 @@ async def my_agent(ctx: agents.JobContext):
         tts=deepgram.TTS(
             model="aura-2-thalia-en",
         ),
-        vad=silero.VAD.load(),
+        vad=ctx.proc.userdata["vad"],
         turn_detection=MultilingualModel(),
     )
 
@@ -393,5 +397,7 @@ async def my_agent(ctx: agents.JobContext):
             watcher_task = asyncio.create_task(_inactivity_watcher())
 
 
+
 if __name__ == "__main__":
     agents.cli.run_app(server)
+
