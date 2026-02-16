@@ -72,3 +72,83 @@ body {
 .agent-visualizer .lk-audio-bar {
   width: 12px;
 }
+
+/* Feature card glow on hover */
+.feature-glow {
+  transition:
+    box-shadow 0.4s ease,
+    border-color 0.4s ease;
+}
+.feature-glow:hover {
+  box-shadow: 0 0 30px -5px var(--glow-color, rgba(45, 212, 191, 0.15));
+  border-color: var(--glow-border, rgba(45, 212, 191, 0.2));
+}
+
+/* How It Works connector line */
+.step-connector {
+  position: relative;
+}
+.step-connector::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -2rem;
+  width: 4rem;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(45, 212, 191, 0.4),
+    rgba(59, 130, 246, 0.2)
+  );
+  transform: translateY(-50%);
+}
+@media (max-width: 768px) {
+  .step-connector::after {
+    top: auto;
+    bottom: -1.5rem;
+    left: 50%;
+    right: auto;
+    width: 2px;
+    height: 3rem;
+    background: linear-gradient(
+      180deg,
+      rgba(45, 212, 191, 0.4),
+      rgba(59, 130, 246, 0.2)
+    );
+    transform: translateX(-50%);
+  }
+}
+
+/* Subtle float animation for step icons */
+@keyframes gentleFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.icon-float {
+  animation: gentleFloat 3s ease-in-out infinite;
+}
+
+/* Section heading gradient text */
+.heading-gradient {
+  background: linear-gradient(135deg, #f8fafc 0%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Service pill styling */
+.service-pill {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.3s ease;
+}
+.service-pill:hover {
+  background: rgba(45, 212, 191, 0.08);
+  border-color: rgba(45, 212, 191, 0.2);
+  transform: translateY(-2px);
+}
