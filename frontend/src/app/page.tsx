@@ -424,7 +424,7 @@ export default function Home() {
               Note to visitors: This is a demo.
             </p>
             <a
-              href="mailto:contact@example.com?subject=Inquiry%20about%20AI%20Agents"
+              href="mailto:persislabs@gmail.com?subject=Inquiry%20about%20AI%20Agents"
               className="mt-2 block text-xs text-teal-500/60 hover:text-teal-400 transition-colors"
             >
               Want an AI agent like this? Contact the developer.
