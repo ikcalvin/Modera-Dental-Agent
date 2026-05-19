@@ -9,41 +9,96 @@ import {
 } from "@livekit/components-react";
 import { ConnectionState } from "livekit-client";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Loader2 } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
+import { X, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Orb, { OrbState } from "./Orb";
-// import clsx from "clsx";
 
 interface AgentModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+const TOKEN_TIMEOUT_MS = 15_000; // 15 seconds to get a token
+
 export default function AgentModal({ isOpen, onClose }: AgentModalProps) {
   const [token, setToken] = useState<string>("");
   const [url, setUrl] = useState<string>("");
+  const [error, setError] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchToken = useCallback(async () => {
+    setError("");
+    setIsLoading(true);
+
+    // Abort any in-flight request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    // Timeout wrapper
+    const timeout = setTimeout(() => controller.abort(), TOKEN_TIMEOUT_MS);
+
+    try {
+      const resp = await fetch("/api/token", { signal: controller.signal });
+
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        if (resp.status === 429) {
+          throw new Error("Too many requests. Please wait a moment and try again.");
+        }
+        throw new Error(body.error || `Connection failed (${resp.status})`);
+      }
+
+      const data = await resp.json();
+      if (!data.accessToken || !data.url) {
+        throw new Error("Invalid server response. Please try again.");
+      }
+
+      setToken(data.accessToken);
+      setUrl(data.url);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        setError("Connection timed out. Please check your internet and try again.");
+      } else if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError("Failed to connect. Please try again.");
+      }
+    } finally {
+      clearTimeout(timeout);
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (isOpen && !token) {
-      (async () => {
-        try {
-          const resp = await fetch("/api/token");
-          const data = await resp.json();
-          setToken(data.accessToken);
-          setUrl(data.url);
-        } catch (e) {
-          console.error(e);
-        }
-      })();
+    if (isOpen && !token && !error) {
+      fetchToken();
     }
-  }, [isOpen, token]);
+
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, [isOpen, token, error, fetchToken]);
+
+  const handleClose = useCallback(() => {
+    abortRef.current?.abort();
+    setToken("");
+    setError("");
+    setIsLoading(false);
+    onClose();
+  }, [onClose]);
 
   const onDisconnected = useCallback(() => {
     setToken("");
     onClose();
   }, [onClose]);
 
-  console.log("AgentModal Render, isOpen:", isOpen);
+  const handleRetry = useCallback(() => {
+    setToken("");
+    setError("");
+    fetchToken();
+  }, [fetchToken]);
 
   return (
     <AnimatePresence>
@@ -61,7 +116,7 @@ export default function AgentModal({ isOpen, onClose }: AgentModalProps) {
             className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-slate-900/90 shadow-2xl glass-card"
           >
             <button
-              onClick={onClose}
+              onClick={handleClose}
               title="Close"
               className="absolute right-4 top-4 z-10 rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
             >
@@ -69,7 +124,27 @@ export default function AgentModal({ isOpen, onClose }: AgentModalProps) {
             </button>
 
             <div className="flex min-h-[400px] flex-col items-center justify-center p-8">
-              {token === "" ? (
+              {error ? (
+                <div className="flex flex-col items-center gap-4 text-center max-w-xs">
+                  <div className="rounded-full bg-red-500/10 p-4">
+                    <AlertCircle className="h-8 w-8 text-red-400" />
+                  </div>
+                  <p className="text-slate-300 text-sm">{error}</p>
+                  <button
+                    onClick={handleRetry}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-300 hover:bg-white/10 transition-colors"
+                  >
+                    <RefreshCw size={16} />
+                    Try Again
+                  </button>
+                  <a
+                    href="tel:+14432528250"
+                    className="text-sm text-teal-400 hover:text-teal-300 transition-colors"
+                  >
+                    Or call us at +1 443 252 8250
+                  </a>
+                </div>
+              ) : !token || isLoading ? (
                 <div className="flex flex-col items-center gap-4">
                   <Loader2 className="h-8 w-8 animate-spin text-teal-400" />
                   <p className="text-slate-400">
@@ -86,7 +161,7 @@ export default function AgentModal({ isOpen, onClose }: AgentModalProps) {
                   onDisconnected={onDisconnected}
                   className="flex flex-col items-center justify-center w-full"
                 >
-                  <AgentContent onClose={onClose} />
+                  <AgentContent />
                   <RoomAudioRenderer />
                   <StartAudio
                     label="Click to Allow Audio"
@@ -102,18 +177,9 @@ export default function AgentModal({ isOpen, onClose }: AgentModalProps) {
   );
 }
 
-function AgentContent({ onClose }: { onClose: () => void }) {
+function AgentContent() {
   const { state } = useVoiceAssistant();
   const connectionState = useConnectionState();
-
-  /*
-   * Removing manual disconnection check as LiveKitRoom handles it via onDisconnected prop.
-   * The initial render state is Disconnected, which was causing immediate closure.
-   */
-  useEffect(() => {
-    // LiveKitRoom handles disconnection mostly, but we can double check or log
-    // removed the immediate onClose on Disconnected to avoid premature closing
-  }, [connectionState]);
 
   // Map state to OrbState
   let orbState: OrbState = "idle";
@@ -121,13 +187,6 @@ function AgentContent({ onClose }: { onClose: () => void }) {
   else if (state === "listening") orbState = "listening";
   else if (connectionState === ConnectionState.Connecting)
     orbState = "connecting";
-
-  // const toggleMute = () => {
-  //   // This is a placeholder for local mute logic if needed,
-  //   // though LiveKitRoom manages published tracks.
-  //   // Real implementation would toggle the local audio track.
-  //   setIsMuted(!isMuted);
-  // };
 
   return (
     <div className="flex flex-col items-center gap-8 w-full">
@@ -147,20 +206,6 @@ function AgentContent({ onClose }: { onClose: () => void }) {
               : "Connected"}
         </p>
       </div>
-
-      {/* 
-        <div className="flex gap-4">
-            <button 
-                onClick={toggleMute}
-                className={clsx(
-                    "p-4 rounded-full transition-all border border-white/10",
-                    isMuted ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-white/5 text-teal-400 hover:bg-white/10"
-                )}
-            >
-                {isMuted ? <MicOff size={24} /> : <Mic size={24} />}
-            </button>
-        </div> 
-       */}
     </div>
   );
 }

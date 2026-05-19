@@ -16,8 +16,8 @@ An AI-powered voice receptionist for Modera Dental Clinic, built with [LiveKit A
 | Component | Provider |
 |-----------|----------|
 | **STT** | Deepgram Nova 3 (multilingual) |
-| **LLM** | OpenAI GPT-4.1-mini |
-| **TTS** | Cartesia Sonic 3 |
+| **LLM** | Google Gemini 3 Flash |
+| **TTS** | Deepgram Aura 2 Thalia |
 | **VAD** | Silero |
 | **Turn Detection** | LiveKit Multilingual Model |
 | **Noise Cancellation** | LiveKit BVC / BVC Telephony |
@@ -39,7 +39,8 @@ An AI-powered voice receptionist for Modera Dental Clinic, built with [LiveKit A
 - [Python 3.12+](https://www.python.org/)
 - [uv](https://docs.astral.sh/uv/) — Python package manager
 - [LiveKit Cloud](https://cloud.livekit.io/) account
-- [OpenAI API key](https://platform.openai.com/)
+- [Google AI API key](https://aistudio.google.com/) (for Gemini)
+- [Deepgram API key](https://deepgram.com/) (for STT & TTS)
 - [Twilio](https://www.twilio.com/) account (for phone calls)
 
 ## Setup
@@ -63,7 +64,8 @@ Edit `.env.local` with your credentials:
 LIVEKIT_URL=wss://your-project.livekit.cloud
 LIVEKIT_API_KEY=your_api_key
 LIVEKIT_API_SECRET=your_api_secret
-OPENAI_API_KEY=your_openai_api_key
+GOOGLE_API_KEY=your_google_api_key
+DEEPGRAM_API_KEY=your_deepgram_api_key
 APPOINTMENT_WEBHOOK_URL=https://your-webhook-endpoint.com/create_appointment
 ```
 
