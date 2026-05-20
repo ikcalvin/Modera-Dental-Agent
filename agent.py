@@ -491,6 +491,9 @@ async def my_agent(ctx: agents.JobContext):
         ),
         vad=ctx.proc.userdata["vad"],
         turn_detection=MultilingualModel(),
+        # Built-in silence detection: after 15s of no speech the SDK
+        # transitions the user state to "away" and fires user_state_changed.
+        user_away_timeout=15,
     )
 
     await session.start(
@@ -509,42 +512,54 @@ async def my_agent(ctx: agents.JobContext):
         instructions="Greet the caller warmly as the Modera Dental Clinic virtual assistant and ask how you can help them today."
     )
 
-    # --- Inactivity monitor ---
-    IDLE_TIMEOUT = 15  # seconds of silence before prompting
-    _idle_reset = asyncio.Event()
+    # --- Inactivity monitor (SDK-native pattern) ---
+    # Uses the built-in user_away_timeout above to detect silence via VAD.
+    # When the user goes silent for 15s the SDK fires user_state_changed
+    # with new_state="away".  We then prompt up to 2 times before ending.
+    _inactivity_task: asyncio.Task | None = None
+    MAX_IDLE_PROMPTS = 2
+    IDLE_PROMPT_INTERVAL = 10  # seconds between check-in prompts
 
-    async def _inactivity_watcher():
-        idle_prompt_count = 0
-        while ctx.room.state == rtc.RoomState.ROOM_STATE_CONNECTED:
-            _idle_reset.clear()
-            try:
-                await asyncio.wait_for(_idle_reset.wait(), timeout=IDLE_TIMEOUT)
-                # User spoke — reset counter and loop again
-                idle_prompt_count = 0
-                continue
-            except asyncio.TimeoutError:
-                pass  # No speech within timeout
-
-            idle_prompt_count += 1
-            try:
-                if idle_prompt_count == 1:
+    async def _idle_check_in():
+        """Prompt the silent caller, then end the call if no response."""
+        try:
+            for attempt in range(1, MAX_IDLE_PROMPTS + 1):
+                if attempt < MAX_IDLE_PROMPTS:
                     await session.generate_reply(
-                        instructions="The caller has been silent for a while. Gently ask if they are still there."
+                        instructions=(
+                            "The caller has been silent for a while. "
+                            "Gently ask if they are still there."
+                        )
                     )
-                elif idle_prompt_count >= 2:
+                else:
                     await session.generate_reply(
-                        instructions="The caller has not responded after being asked. Say goodbye politely and end the call."
+                        instructions=(
+                            "The caller has not responded after being asked. "
+                            "Say goodbye politely and end the call."
+                        )
                     )
-                    break
-            except (RuntimeError, asyncio.CancelledError):
-                break
+                    # Give TTS time to finish speaking before shutdown
+                    await asyncio.sleep(5)
+                    session.shutdown()
+                    return
 
-    watcher_task = asyncio.create_task(_inactivity_watcher())
+                await asyncio.sleep(IDLE_PROMPT_INTERVAL)
+        except asyncio.CancelledError:
+            pass  # User resumed — task was cancelled, nothing to do
 
-    @session.on("user_input_transcribed")
-    def _on_user_speech(ev):
-        if ev.is_final:
-            _idle_reset.set()
+    @session.on("user_state_changed")
+    def _on_user_state_changed(ev):
+        nonlocal _inactivity_task
+
+        if ev.new_state == "away":
+            # User went silent — start the check-in loop
+            if _inactivity_task is None or _inactivity_task.done():
+                _inactivity_task = asyncio.create_task(_idle_check_in())
+        else:
+            # User is back (speaking / listening) — cancel any pending prompts
+            if _inactivity_task is not None and not _inactivity_task.done():
+                _inactivity_task.cancel()
+                _inactivity_task = None
 
     # --- Metrics collection ---
     @session.on("metrics_collected")
