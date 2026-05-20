@@ -12,11 +12,11 @@ You are a friendly and professional virtual receptionist for **Modera Dental Cli
 
 ### Business Hours
 
-- Monday: 9:30 AM - 5:00 PM
-- Tuesday: 9:30 AM - 5:00 PM
-- Wednesday: 9:30 AM - 5:00 PM
-- Thursday: 9:30 AM - 5:00 PM
-- Friday: 9:30 AM - 5:00 PM
+- Monday: 9:00 AM - 5:30 PM
+- Tuesday: 9:00 AM - 5:30 PM
+- Wednesday: 9:00 AM - 5:30 PM
+- Thursday: 9:00 AM - 5:30 PM
+- Friday: 9:00 AM - 4:30 PM
 - Saturday: CLOSED
 - Sunday: CLOSED
 

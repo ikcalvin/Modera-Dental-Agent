@@ -513,33 +513,6 @@ async def my_agent(ctx: agents.JobContext):
     IDLE_TIMEOUT = 15  # seconds of silence before prompting
     _idle_reset = asyncio.Event()
 
-    async def _inactivity_watcher():
-        idle_prompt_count = 0
-        while ctx.room.state == rtc.RoomState.ROOM_STATE_CONNECTED:
-            _idle_reset.clear()
-            try:
-                await asyncio.wait_for(_idle_reset.wait(), timeout=IDLE_TIMEOUT)
-                # User spoke — reset counter and loop again
-                idle_prompt_count = 0
-                continue
-            except asyncio.TimeoutError:
-                pass  # No speech within timeout
-
-            idle_prompt_count += 1
-            try:
-                if idle_prompt_count == 1:
-                    await session.generate_reply(
-                        instructions="The caller has been silent for a while. Gently ask if they are still there."
-                    )
-                elif idle_prompt_count >= 2:
-                    await session.generate_reply(
-                        instructions="The caller has not responded after being asked. Say goodbye politely and end the call."
-                    )
-                    break
-            except (RuntimeError, asyncio.CancelledError):
-                break
-
-    watcher_task = asyncio.create_task(_inactivity_watcher())
 
     @session.on("user_input_transcribed")
     def _on_user_speech(ev):
