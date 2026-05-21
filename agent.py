@@ -162,6 +162,31 @@ async def check_availability(
                 slot_list = ", ".join(slots[:5])  # Show up to 5 options
                 return f"Available slots on {preferred_date}: {slot_list}"
 
+            # Cal.com-style response:
+            # {
+            #   "data": {
+            #     "YYYY-MM-DD": [{"start": "2026-05-22T09:00:00.000-04:00"}, ...]
+            #   },
+            #   "status": "success"
+            # }
+            if isinstance(data, dict) and "data" in data and isinstance(data["data"], dict):
+                day_slots = data["data"].get(preferred_date, [])
+                starts = [
+                    slot.get("start")
+                    for slot in day_slots
+                    if isinstance(slot, dict) and slot.get("start")
+                ]
+                if not starts:
+                    return (
+                        f"No available slots on {preferred_date}. "
+                        "Please suggest another date."
+                    )
+                slot_list = ", ".join(starts[:5])  # Show up to 5 exact starts
+                return (
+                    f"Available slots on {preferred_date}: {slot_list}. "
+                    "Use one of these exact start values when booking."
+                )
+
             # Fallback for simple list response
             if isinstance(data, list):
                 if not data:
@@ -267,10 +292,28 @@ async def lookup_appointment(
                      # Handle nested appointments list (new format)
                      if "appointments" in item and isinstance(item["appointments"], list):
                          for apt in item["appointments"]:
-                             results.append(f"- ID {apt.get('appointment_id')}: {apt.get('service_type')} on {apt.get('date')} at {apt.get('time')}")
+                             results.append(
+                                 f"- appointment_id={apt.get('appointment_id')}, "
+                                 f"record_id={apt.get('record_id')}, "
+                                 f"reservation_id={apt.get('reservation_id')}, "
+                                 f"customer={apt.get('customer')}, "
+                                 f"service_type={apt.get('service_type')}, "
+                                 f"phone={apt.get('phone')}, "
+                                 f"date={apt.get('date')}, "
+                                 f"time={apt.get('time')}"
+                             )
                      # Handle flat list (previous format fallback)
                      elif "appointment_id" in item:
-                         results.append(f"- ID {item.get('appointment_id')}: {item.get('service_type')} on {item.get('date')} at {item.get('time')}")
+                         results.append(
+                             f"- appointment_id={item.get('appointment_id')}, "
+                             f"record_id={item.get('record_id')}, "
+                             f"reservation_id={item.get('reservation_id')}, "
+                             f"customer={item.get('customer')}, "
+                             f"service_type={item.get('service_type')}, "
+                             f"phone={item.get('phone')}, "
+                             f"date={item.get('date')}, "
+                             f"time={item.get('time')}"
+                         )
                  
                  if results:
                      return "Found the following appointments:\n" + "\n".join(results)
@@ -299,7 +342,8 @@ async def reschedule_appointment(
 
     Args:
         appointment_id: The ID of the appointment to reschedule (returned from lookup_appointment)
-        new_datetime: The new date and time in ISO format (e.g., 2026-02-15T14:00)
+        new_datetime: The new date and time in ISO format. Prefer the exact `start`
+            value returned by `check_availability` (e.g., 2026-05-22T09:45:00.000-04:00)
 
     Returns:
         A confirmation message of the rescheduling.
@@ -322,19 +366,37 @@ async def reschedule_appointment(
 
 @function_tool()
 async def cancel_appointment(
-    appointment_id: str,
+    record_id: str,
+    customer: str,
+    reservation_id: str,
+    service_type: str,
+    phone: str,
+    date: str,
+    time: str,
 ) -> str:
     """
     Cancel an existing appointment.
 
     Args:
-        appointment_id: The ID of the appointment to cancel (returned from lookup_appointment)
+        record_id: The appointment record id from lookup_appointment
+        customer: The customer full name from lookup_appointment
+        reservation_id: The reservation id from lookup_appointment
+        service_type: The service type from lookup_appointment
+        phone: The customer phone from lookup_appointment
+        date: The appointment date from lookup_appointment
+        time: The appointment time from lookup_appointment
 
     Returns:
         A confirmation message of the cancellation.
     """
     payload = {
-        "appointment_id": appointment_id,
+        "record_id": record_id,
+        "customer": customer,
+        "reservation_id": reservation_id,
+        "service_type": service_type,
+        "phone": phone,
+        "date": date,
+        "time": time,
     }
 
     try:

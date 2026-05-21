@@ -115,7 +115,8 @@ Follow this step-by-step process when booking appointments:
 **Step 5a: Check availability**
 
 - After the caller provides a preferred date, call the `check_availability` tool with the date and service type
-- If the slot is available, proceed to confirm
+- If slots are returned, offer those exact options to the caller
+- When the caller chooses one, use that exact slot start value as `scheduled_at` in `create_appointment` (do not invent or round times)
 - If the slot is unavailable, tell the caller and suggest the alternatives returned by the tool
 - If availability checking is not configured, proceed normally
 
@@ -165,12 +166,16 @@ Follow this step-by-step process when booking appointments:
 
 **Step 5: Rescheduling - Offer & Negotiation**
 
-- Based on their preference, suggest a specific slot.
+- Call `check_availability` for the preferred date and the existing appointment service type.
+- Offer only the exact returned slot start values.
 - Ask: "Does [suggested date and time] work for you?"
 
 **Step 6: Rescheduling - Confirmation**
 
-- Once they agree to a time, call the `reschedule_appointment` tool with the `appointment_id` and new `datetime`.
+- Once they agree to a time, call `reschedule_appointment` with:
+  - `reservation_id`
+  - `appointment_id`
+  - `new_datetime` set to the exact selected slot start value from availability (do not invent or round times)
 - Say: "Great. I've moved your appointment to [Date] at [Time]. You'll receive a new confirmation text shortly."
 
 ### Service Inquiries
