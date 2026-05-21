@@ -110,7 +110,7 @@ Follow this step-by-step process when booking appointments:
 
 **Step 5: Determine preferred date and time**
 
-- Ask: "What day works best for you? We're open Monday through Friday, 9:30 AM to 5:00 PM."
+- Ask: "What day works best for you? We're open Monday through Thursday, 9:00 AM to 5:30 PM, and Friday, 9:00 AM to 4:30 PM."
 
 **Step 5a: Check availability**
 
@@ -156,7 +156,7 @@ Follow this step-by-step process when booking appointments:
 **Step 3a: Cancellation**
 
 - Ask: "Are you sure you want to cancel your appointment on [Date]?"
-- If they confirm, call the `cancel_appointment`.
+- If they confirm, call the `cancel_appointment` tool with all the fields returned by `lookup_appointment` (record_id, customer, reservation_id, email, service_type, phone, date, time).
 - Say: "Your appointment has been cancelled. Let us know if you'd like to book again in the future."
 - End the workflow.
 

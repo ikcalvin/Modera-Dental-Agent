@@ -20,6 +20,8 @@ Usage:
   4. Assert none of the must_not conditions are violated
 """
 
+from copy import deepcopy
+
 SCENARIOS = [
     # ──────────────────────────────────────────────
     # BOOKING FLOWS
@@ -192,7 +194,7 @@ SCENARIOS = [
             "give wrong hours",
             "say the clinic is open on weekends",
         ],
-        "notes": "Should state Mon-Fri 9:30 AM - 5:00 PM, closed weekends.",
+        "notes": "Should state Mon-Thu 9:00 AM - 5:30 PM, Fri 9:00 AM - 4:30 PM, closed weekends.",
     },
     {
         "id": "info_003",
@@ -294,13 +296,13 @@ def get_scenario_by_id(scenario_id: str) -> dict | None:
     """Retrieve a specific scenario by ID."""
     for s in SCENARIOS:
         if s["id"] == scenario_id:
-            return s
+            return deepcopy(s)
     return None
 
 
 def get_scenarios_by_tool(tool_name: str | None) -> list[dict]:
     """Get all scenarios that expect a specific tool to be called."""
-    return [s for s in SCENARIOS if s["expected_tool"] == tool_name]
+    return [deepcopy(s) for s in SCENARIOS if s["expected_tool"] == tool_name]
 
 
 if __name__ == "__main__":

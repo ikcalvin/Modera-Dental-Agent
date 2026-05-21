@@ -72,14 +72,17 @@ export default function AgentModal({ isOpen, onClose }: AgentModalProps) {
   }, []);
 
   useEffect(() => {
-    if (isOpen && !token && !error) {
+    if (isOpen && !token) {
       fetchToken();
     }
+  }, [isOpen, token, fetchToken]);
 
+  // Abort any in-flight token fetch on unmount.
+  useEffect(() => {
     return () => {
       abortRef.current?.abort();
     };
-  }, [isOpen, token, error, fetchToken]);
+  }, []);
 
   const handleClose = useCallback(() => {
     abortRef.current?.abort();
