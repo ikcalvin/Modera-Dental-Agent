@@ -1,0 +1,649 @@
+# ============================================================
+# Modera Dental Agent — 26 Prompt Regression Scenarios
+# ============================================================
+#
+# Multi-turn tests use the "multi-turn" prompt with a `conversation` array.
+# Single-turn tests use the "single-turn" prompt with a `prompt` string.
+#
+# Assertions:
+#   - javascript: checks tool_calls for expected tool + fields
+#   - not-contains: must_not violations
+#   - llm-rubric: behavioral checks that need LLM judgment
+# ============================================================
+
+# ──────────────────────────────────────────────
+# BOOKING FLOWS
+# ──────────────────────────────────────────────
+
+- description: "book_001: Happy path — new patient books a routine checkup"
+  options:
+    prompts: ["multi-turn"]
+  vars:
+    conversation:
+      - role: user
+        content: "Hi, I'd like to schedule a cleaning please"
+      - role: assistant
+        content: "Of course! I'd be happy to help you schedule a cleaning. May I have your full name, please?"
+      - role: user
+        content: "My name is Maria Garcia"
+      - role: assistant
+        content: "Thank you, Maria! What's the best phone number to reach you?"
+      - role: user
+        content: "305-555-1234"
+      - role: assistant
+        content: "Got it, 305-555-1234. And what email address should we send the confirmation to?"
+      - role: user
+        content: "maria@gmail.com"
+      - role: assistant
+        content: "Perfect. Are you a new patient with us, or have you visited before?"
+      - role: user
+        content: "Yes, I'm a new patient"
+      - role: assistant
+        content: "Welcome! What day works best for you? We're open Monday through Thursday, 9 AM to 5:30 PM, and Friday 9 AM to 4:30 PM."
+      - role: user
+        content: "Next Tuesday at 10am would be great"
+      - role: assistant
+        content: "Great, so I have you down for a routine cleaning next Tuesday at 10 AM. The name is Maria Garcia and we'll send confirmation to 305-555-1234 and maria@gmail.com. Sound good?"
+      - role: user
+        content: "Yes, that all sounds correct"
+  assert:
+    - type: javascript
+      value: |
+        const toolCalls = JSON.parse(output).tool_calls || output.tool_calls || [];
+        const hasCreate = Array.isArray(toolCalls)
+          ? toolCalls.some(tc => (tc.function?.name || tc.name) === 'create_appointment')
+          : output.includes('create_appointment');
+        return hasCreate || output.toLowerCase().includes('create_appointment');
+    - type: not-contains
+      value: "What kind of appointment"
+
+- description: "book_002: Emergency booking with urgency detection"
+  options:
+    prompts: ["multi-turn"]
+  vars:
+    conversation:
+      - role: user
+        content: "I have really bad tooth pain, it started this morning and I can barely eat"
+      - role: assistant
+        content: "I'm sorry to hear that! Let's get you in as soon as possible. May I have your full name?"
+      - role: user
+        content: "John Davis"
+      - role: assistant
+        content: "Thank you, John. What's the best phone number to reach you?"
+      - role: user
+        content: "305-555-9876"
+      - role: assistant
+        content: "Got it. And your email address?"
+      - role: user
+        content: "john.davis@email.com"
+      - role: assistant
+        content: "Have you been to Modera Dental before?"
+      - role: user
+        content: "No, I've been here before"
+      - role: assistant
+        content: "When would you like to come in? Given the urgency, I'll try to get you in today."
+      - role: user
+        content: "As soon as possible, today if you can"
+      - role: assistant
+        content: "I have you down for an emergency same-day appointment today for John Davis. We'll reach you at 305-555-9876. Does that sound right?"
+      - role: user
+        content: "Yes, please go ahead"
+  assert:
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        const isEmergency = out.toLowerCase().includes('emergency') || out.includes('Same-Day');
+        return isEmergency || out.includes('create_appointment');
+    - type: not-contains
+      value: "Routine Checkup"
+
+- description: "book_003: Ambiguous service — agent should ask clarifying question"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "I want to fix my teeth, they look bad"
+  assert:
+    - type: llm-rubric
+      value: "The response asks a clarifying question to understand what the caller needs, rather than immediately assuming a service type or reading a list of options."
+    - type: not-contains
+      value: "Orthodontics Consultation"
+    - type: not-contains
+      value: "Cosmetic Dentistry Consultation"
+    - type: javascript
+      value: |
+        // Should NOT call any booking tool yet
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return !out.includes('create_appointment');
+
+- description: "book_004: Caller has no email — should handle gracefully"
+  options:
+    prompts: ["multi-turn"]
+  vars:
+    conversation:
+      - role: user
+        content: "I need a checkup"
+      - role: assistant
+        content: "I'd be happy to help you schedule a checkup! May I have your full name?"
+      - role: user
+        content: "Roberto Mendez"
+      - role: assistant
+        content: "Thank you, Roberto. What's the best phone number to reach you?"
+      - role: user
+        content: "305-555-4321"
+      - role: assistant
+        content: "And what email address should we send the confirmation to?"
+      - role: user
+        content: "I don't have an email"
+      - role: assistant
+        content: "No problem at all! Have you been to Modera Dental before?"
+      - role: user
+        content: "I've been coming here for years"
+      - role: assistant
+        content: "Great! What day works best for you?"
+      - role: user
+        content: "Wednesday at 2pm"
+      - role: assistant
+        content: "So I have Roberto Mendez for a routine checkup on Wednesday at 2 PM. We'll reach you at 305-555-4321. Sound good?"
+      - role: user
+        content: "Yes that's correct"
+  assert:
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return out.includes('create_appointment');
+    - type: llm-rubric
+      value: "The response does not refuse to book or ask for email again."
+
+- description: "book_005: Weekend date — agent should redirect to weekday"
+  options:
+    prompts: ["multi-turn"]
+  vars:
+    conversation:
+      - role: user
+        content: "I'd like to schedule a teeth whitening"
+      - role: assistant
+        content: "I'd be happy to help with that! May I have your full name?"
+      - role: user
+        content: "Ana Rodriguez"
+      - role: assistant
+        content: "Thank you, Ana. What's the best phone number?"
+      - role: user
+        content: "305-555-7777"
+      - role: assistant
+        content: "And your email?"
+      - role: user
+        content: "ana@email.com"
+      - role: assistant
+        content: "Are you a new patient?"
+      - role: user
+        content: "No, I'm new"
+      - role: assistant
+        content: "Welcome! What day works best? We're open Monday through Thursday 9 AM to 5:30 PM, and Friday 9 AM to 4:30 PM."
+      - role: user
+        content: "Saturday morning would be great"
+  assert:
+    - type: llm-rubric
+      value: "The response informs the caller that the clinic is closed on weekends and suggests a weekday alternative."
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return !out.includes('create_appointment');
+
+# ──────────────────────────────────────────────
+# ADAPTIVE FLOW
+# ──────────────────────────────────────────────
+
+- description: "adaptive_001: Caller volunteers name and service upfront — agent should not re-ask"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "Hi, I'm Maria Garcia, I need a cleaning next Tuesday"
+  assert:
+    - type: llm-rubric
+      value: "The response acknowledges the caller's name (Maria Garcia), the service (cleaning), and the preferred day (Tuesday) without re-asking for any of these details. It should only ask for remaining missing information like phone number."
+    - type: javascript
+      value: |
+        const out = output.toLowerCase();
+        // Should not ask "what's your name" or "what can I help you with"
+        const reasksName = out.includes('your name') || out.includes('may i have your name');
+        const reasksService = out.includes('what can i help') || out.includes('what do you need');
+        return !reasksName && !reasksService;
+
+- description: "adaptive_002: Caller gives name, phone, and reason in one breath"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "This is Carlos Diaz, 305-555-8888, I need an emergency appointment my tooth broke"
+  assert:
+    - type: llm-rubric
+      value: "The response acknowledges Carlos Diaz, his phone number, and the emergency without re-asking for any of those. It should only ask for remaining details like email."
+    - type: javascript
+      value: |
+        const out = output.toLowerCase();
+        const reasksName = out.includes('your name') && !out.includes('carlos');
+        const reasksPhone = out.includes('phone number') && !out.includes('confirm');
+        return !reasksName && !reasksPhone;
+
+# ──────────────────────────────────────────────
+# BOOKING FOR OTHERS
+# ──────────────────────────────────────────────
+
+- description: "proxy_001: Parent booking for child — should distinguish patient vs contact"
+  options:
+    prompts: ["multi-turn"]
+  vars:
+    conversation:
+      - role: user
+        content: "I need to schedule an appointment for my son, he needs braces"
+      - role: assistant
+        content: "Of course! What's the patient's full name?"
+      - role: user
+        content: "His name is Lucas Martinez"
+      - role: assistant
+        content: "And may I have your name as the contact person?"
+      - role: user
+        content: "I'm Diana Martinez"
+      - role: assistant
+        content: "Thank you, Diana. What's the best phone number to reach you?"
+      - role: user
+        content: "305-555-4444"
+      - role: assistant
+        content: "And your email?"
+      - role: user
+        content: "diana.m@email.com"
+      - role: assistant
+        content: "Is Lucas a new patient with us?"
+      - role: user
+        content: "He's a new patient"
+      - role: assistant
+        content: "What day works best for Lucas's appointment?"
+      - role: user
+        content: "Next Thursday at 3pm"
+      - role: assistant
+        content: "I have Lucas Martinez down for an orthodontics consultation next Thursday at 3 PM. You, Diana Martinez, are the contact at 305-555-4444. Does that sound right?"
+      - role: user
+        content: "Yes, that's all correct"
+  assert:
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return out.includes('create_appointment');
+    - type: llm-rubric
+      value: "The response books an orthodontics-related appointment, not a routine checkup."
+
+# ──────────────────────────────────────────────
+# MID-FLOW CORRECTIONS
+# ──────────────────────────────────────────────
+
+- description: "correct_001: Caller corrects preferred date mid-flow"
+  options:
+    prompts: ["multi-turn"]
+  vars:
+    conversation:
+      - role: user
+        content: "I'd like a checkup"
+      - role: assistant
+        content: "I'd be happy to help! May I have your full name?"
+      - role: user
+        content: "Lisa Chen"
+      - role: assistant
+        content: "Thank you, Lisa. What's the best phone number?"
+      - role: user
+        content: "305-555-6666"
+      - role: assistant
+        content: "And your email?"
+      - role: user
+        content: "lisa@email.com"
+      - role: assistant
+        content: "Are you a new patient?"
+      - role: user
+        content: "Yes, I'm new"
+      - role: assistant
+        content: "Welcome! What day works best?"
+      - role: user
+        content: "Tuesday at 10am"
+      - role: assistant
+        content: "Great, I have Lisa Chen for a routine checkup on Tuesday at 10 AM. Sound good?"
+      - role: user
+        content: "Actually, make that Wednesday instead"
+  assert:
+    - type: llm-rubric
+      value: "The response acknowledges the correction to Wednesday and does not restart the booking flow from the beginning. It should update the day and confirm the corrected details."
+    - type: javascript
+      value: |
+        const out = output.toLowerCase();
+        // Should not re-ask for name, phone, etc.
+        return !out.includes('your name') && !out.includes('phone number');
+
+# ──────────────────────────────────────────────
+# MANAGE EXISTING APPOINTMENTS
+# ──────────────────────────────────────────────
+
+- description: "manage_001: Caller wants to reschedule — should lookup first"
+  options:
+    prompts: ["multi-turn"]
+  vars:
+    conversation:
+      - role: user
+        content: "I need to reschedule my appointment"
+      - role: assistant
+        content: "I can help with that. Could I get your full name and the phone number associated with the appointment?"
+      - role: user
+        content: "Sarah Johnson"
+      - role: assistant
+        content: "And the phone number on file?"
+      - role: user
+        content: "305-555-2222"
+  assert:
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return out.includes('lookup_appointment');
+    - type: javascript
+      value: |
+        // Should NOT try to create a new appointment
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return !out.includes('create_appointment');
+
+- description: "manage_002: Caller wants to cancel — should lookup first"
+  options:
+    prompts: ["multi-turn"]
+  vars:
+    conversation:
+      - role: user
+        content: "I want to cancel my appointment"
+      - role: assistant
+        content: "I can help with that. Could I get your full name and the phone number on the appointment?"
+      - role: user
+        content: "Mike Thompson, 305-555-3333"
+  assert:
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return out.includes('lookup_appointment');
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return !out.includes('cancel_appointment');
+
+# ──────────────────────────────────────────────
+# INFORMATION REQUESTS
+# ──────────────────────────────────────────────
+
+- description: "info_001: Caller asks about services — should inform, not book"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "What kind of services do you offer?"
+  assert:
+    - type: llm-rubric
+      value: "The response describes dental services offered by the clinic and offers to schedule a consultation. It does not try to immediately collect booking information."
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return !out.includes('create_appointment') && !out.includes('full_name');
+    - type: not-contains
+      value: "$"
+
+- description: "info_002: Caller asks about business hours"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "What are your hours?"
+  assert:
+    - type: llm-rubric
+      value: "The response includes correct business hours: Monday through Thursday 9 AM to 5:30 PM, Friday 9 AM to 4:30 PM, and states the clinic is closed on weekends."
+    - type: not-contains
+      value: "Saturday"
+      metric: "hours_no_weekend_open"
+    - type: javascript
+      value: |
+        const out = output.toLowerCase();
+        // Must mention both weekday and Friday hours
+        const hasMon = out.includes('monday') || out.includes('mon');
+        const hasFri = out.includes('friday') || out.includes('fri');
+        return hasMon && hasFri;
+
+- description: "info_003: Caller asks about pricing — should not give specific prices"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "How much does a teeth whitening cost?"
+  assert:
+    - type: not-contains
+      value: "$"
+    - type: llm-rubric
+      value: "The response does not give a specific dollar amount. It suggests an in-person consultation for pricing details."
+
+# ──────────────────────────────────────────────
+# INSURANCE QUESTIONS
+# ──────────────────────────────────────────────
+
+- description: "insurance_001: General insurance question — should answer, not escalate"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "Do you accept dental insurance?"
+  assert:
+    - type: llm-rubric
+      value: "The response confirms they work with most major dental insurance plans and offers to verify specific coverage. It does not transfer to a human."
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return !out.includes('transfer_to_human');
+    - type: not-contains
+      value: "copay"
+    - type: not-contains
+      value: "deductible"
+
+- description: "insurance_002: Specific insurance plan question"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "Do you take Delta Dental PPO?"
+  assert:
+    - type: llm-rubric
+      value: "The response says they work with most major plans including PPOs and offers to verify the specific plan at the visit. It does not definitively confirm or deny Delta Dental coverage."
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return !out.includes('transfer_to_human');
+
+- description: "insurance_003: No insurance — should welcome the caller"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "I don't have dental insurance, can I still come in?"
+  assert:
+    - type: llm-rubric
+      value: "The response reassures the caller that uninsured patients are welcome. It mentions self-pay options or competitive rates. It does not refuse service or transfer to a human."
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return !out.includes('transfer_to_human');
+
+# ──────────────────────────────────────────────
+# DENTAL ANXIETY
+# ──────────────────────────────────────────────
+
+- description: "anxiety_001: Caller expresses dental fear — agent should be empathetic"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "I need to come in but I'm really scared of the dentist"
+  assert:
+    - type: llm-rubric
+      value: "The response normalizes the caller's fear, reassures them about gentle care, and may mention comfort options like sedation. It does not dismiss the fear with phrases like 'nothing to be afraid of'. It does not immediately jump to booking without first acknowledging the anxiety."
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return !out.includes('create_appointment');
+
+- description: "anxiety_002: Caller hasn't visited dentist in years — should encourage"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "I haven't been to a dentist in about 8 years, I know that's bad"
+  assert:
+    - type: llm-rubric
+      value: "The response praises the caller for taking the step, normalizes the gap, and does not judge or scold them. It does not list potential dental problems that could result from not visiting."
+    - type: javascript
+      value: |
+        const out = output.toLowerCase();
+        // Should not be judgmental
+        const judgmental = out.includes('you should have') || out.includes('that is bad') || out.includes("that's bad");
+        return !judgmental;
+
+# ──────────────────────────────────────────────
+# AFTER-HOURS BEHAVIOR
+# ──────────────────────────────────────────────
+
+- description: "afterhours_001: Caller reaches agent after hours — should acknowledge and still help"
+  options:
+    prompts: ["multi-turn"]
+  vars:
+    conversation:
+      # Inject after-hours time context as a second system message
+      - role: system
+        content: |
+          ## Current Time Context
+
+          The current date and time is: Saturday, May 24, 2026, at 08:30 PM EDT.
+          Use this as 'today' for all scheduling. If a user says 'tomorrow' or 'next Tuesday', calculate the date relative to this timestamp.
+      - role: user
+        content: "Hi, I'd like to book a cleaning"
+  assert:
+    - type: llm-rubric
+      value: "The response acknowledges that the office is currently closed but offers to help book an appointment for when the office is open. It does not refuse to help or try to transfer to a human."
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return !out.includes('transfer_to_human');
+
+# ──────────────────────────────────────────────
+# TOOL-WAIT FILLER
+# ──────────────────────────────────────────────
+
+- description: "filler_001: Agent should say filler phrase before booking tool"
+  options:
+    prompts: ["multi-turn"]
+  vars:
+    conversation:
+      - role: user
+        content: "I'd like a cleaning"
+      - role: assistant
+        content: "I'd be happy to help! May I have your full name?"
+      - role: user
+        content: "Tom Baker"
+      - role: assistant
+        content: "Thank you, Tom. What's the best phone number?"
+      - role: user
+        content: "305-555-1111"
+      - role: assistant
+        content: "And your email?"
+      - role: user
+        content: "tom@email.com"
+      - role: assistant
+        content: "Are you a new patient?"
+      - role: user
+        content: "Yes, new patient"
+      - role: assistant
+        content: "Welcome! What day works best?"
+      - role: user
+        content: "Monday at 9am"
+      - role: assistant
+        content: "I have Tom Baker for a routine cleaning on Monday at 9 AM, new patient. We'll send confirmation to 305-555-1111 and tom@email.com. Sound good?"
+      - role: user
+        content: "Yes, go ahead and book it"
+  assert:
+    - type: llm-rubric
+      value: "The response includes a brief filler phrase like 'let me get that booked' or 'one moment' before or alongside calling the booking tool. It should not silently call the tool without any verbal acknowledgment."
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return out.includes('create_appointment') || out.toLowerCase().includes('book');
+
+# ──────────────────────────────────────────────
+# ESCALATION
+# ──────────────────────────────────────────────
+
+- description: "escalate_001: Caller explicitly asks for a real person"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "I want to speak to a real person please"
+  assert:
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return out.includes('transfer_to_human');
+
+- description: "escalate_002: Billing complaint — should escalate"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "I got charged twice for my last visit and I'm very upset about it"
+  assert:
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return out.includes('transfer_to_human');
+    - type: llm-rubric
+      value: "The response acknowledges the caller's concern without dismissing it and indicates it will connect them with someone who can help."
+
+# ──────────────────────────────────────────────
+# BILINGUAL
+# ──────────────────────────────────────────────
+
+- description: "lang_001: Caller speaks Spanish — agent should respond in Spanish"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "Hola, necesito hacer una cita para una limpieza"
+  assert:
+    - type: llm-rubric
+      value: "The response is in Spanish, not English. It addresses the caller's request to schedule a cleaning."
+    - type: javascript
+      value: |
+        const out = output.toLowerCase();
+        // Should contain some Spanish words
+        const hasSpanish = out.includes('hola') || out.includes('cita') || out.includes('limpieza')
+          || out.includes('nombre') || out.includes('ayudar') || out.includes('gusto')
+          || out.includes('bienvenido');
+        return hasSpanish;
+
+# ──────────────────────────────────────────────
+# EDGE CASES
+# ──────────────────────────────────────────────
+
+- description: "edge_001: Caller says goodbye — agent should end call"
+  options:
+    prompts: ["multi-turn"]
+  vars:
+    conversation:
+      - role: user
+        content: "That's all I needed, thank you!"
+      - role: assistant
+        content: "You're welcome! Is there anything else I can help you with?"
+      - role: user
+        content: "Bye!"
+  assert:
+    - type: javascript
+      value: |
+        const out = typeof output === 'string' ? output : JSON.stringify(output);
+        return out.includes('end_call');
+
+- description: "edge_002: Caller says 'I want to book' — agent should ask ONE question at a time"
+  options:
+    prompts: ["single-turn"]
+  vars:
+    prompt: "I'd like to book an appointment"
+  assert:
+    - type: llm-rubric
+      value: "The response asks only ONE question — either what type of appointment or what the caller needs help with. It does NOT ask for name, phone, email, or date in the same response."
+    - type: javascript
+      value: |
+        const out = output.toLowerCase();
+        // Count question marks — should ideally be 1
+        const questions = (out.match(/\?/g) || []).length;
+        return questions <= 2;

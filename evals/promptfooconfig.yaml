@@ -1,0 +1,31 @@
+# Modera Dental Agent — Prompt Regression Tests
+# Run with: npx promptfoo@latest eval --config evals/promptfooconfig.yaml
+# View results: npx promptfoo@latest view
+
+description: "Modera Dental Voice Agent — 26 scenario prompt regression suite"
+
+prompts:
+  # Single-turn: system prompt + one user message
+  - id: single-turn
+    label: "Single Turn"
+    raw: >-
+      [{"role":"system","content":{{system_prompt | dump}}},{"role":"user","content":{{prompt | dump}}}]
+
+  # Multi-turn: system prompt + full conversation history
+  - id: multi-turn
+    label: "Multi Turn"
+    raw: >-
+      [{"role":"system","content":{{system_prompt | dump}}}{% for msg in conversation %},{"role":"{{msg.role}}","content":{{msg.content | dump}}}{% endfor %}]
+
+providers:
+  - id: openai:chat:gpt-4.1-mini
+    label: "GPT-4.1 Mini"
+    config:
+      temperature: 0
+      tools: file://tools.json
+
+defaultTest:
+  vars:
+    system_prompt: file://../prompt.md
+
+tests: file://tests.yaml
