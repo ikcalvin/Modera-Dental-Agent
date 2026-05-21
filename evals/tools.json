@@ -1,0 +1,207 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "check_availability",
+      "description": "Check available appointment slots for a given date and service type. Call this tool BEFORE booking to verify the requested time slot is available.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "preferred_date": {
+            "type": "string",
+            "description": "The date to check in ISO format (e.g., 2026-06-15)"
+          },
+          "service_type": {
+            "type": "string",
+            "enum": [
+              "Orthodontics Consultation",
+              "Routine Checkup",
+              "Dental Implants Consultation",
+              "Cosmetic Dentistry Consultation",
+              "Teeth Whitening",
+              "Crown Fitting",
+              "Root Canal Treatment",
+              "New Patient Exam",
+              "Emergency / Same-Day"
+            ],
+            "description": "The type of appointment to check availability for"
+          }
+        },
+        "required": ["preferred_date", "service_type"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "create_appointment",
+      "description": "Create a new appointment for a patient at Modera Dental Clinic. Call this tool when you have collected all the necessary information from the caller and they have confirmed the details.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "description": "The patient's full name (first and last name)"
+          },
+          "phone": {
+            "type": "string",
+            "description": "The patient's phone number (e.g., 3055551234)"
+          },
+          "email": {
+            "type": "string",
+            "description": "The patient's email address"
+          },
+          "is_new_customer": {
+            "type": "boolean",
+            "description": "True if this is a new patient, False if existing"
+          },
+          "service_type": {
+            "type": "string",
+            "enum": [
+              "Orthodontics Consultation",
+              "Routine Checkup",
+              "Dental Implants Consultation",
+              "Cosmetic Dentistry Consultation",
+              "Teeth Whitening",
+              "Crown Fitting",
+              "Root Canal Treatment",
+              "New Patient Exam",
+              "Emergency / Same-Day"
+            ],
+            "description": "The type of appointment service requested"
+          },
+          "scheduled_at": {
+            "type": "string",
+            "description": "The appointment date and time in ISO format (e.g., 2026-06-15T10:00)"
+          },
+          "reason": {
+            "type": "string",
+            "description": "A brief description of why the patient is coming in"
+          },
+          "urgency": {
+            "type": "string",
+            "enum": ["Low", "Medium", "High"],
+            "description": "The urgency level of the appointment"
+          }
+        },
+        "required": ["full_name", "phone", "email", "is_new_customer", "service_type", "scheduled_at", "reason"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "lookup_appointment",
+      "description": "Look up an existing appointment for a patient by name and phone number.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "description": "The patient's full name"
+          },
+          "phone": {
+            "type": "string",
+            "description": "The patient's phone number (10 digits)"
+          }
+        },
+        "required": ["full_name", "phone"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "reschedule_appointment",
+      "description": "Reschedule an existing appointment to a new date and time.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "appointment_id": {
+            "type": "string",
+            "description": "The ID of the appointment to reschedule"
+          },
+          "new_datetime": {
+            "type": "string",
+            "description": "The new date and time in ISO format"
+          }
+        },
+        "required": ["appointment_id", "new_datetime"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "cancel_appointment",
+      "description": "Cancel an existing appointment. Pass all fields returned by lookup_appointment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "description": "The appointment record id from lookup_appointment"
+          },
+          "customer": {
+            "type": "string",
+            "description": "The customer full name from lookup_appointment"
+          },
+          "reservation_id": {
+            "type": "string",
+            "description": "The reservation id from lookup_appointment"
+          },
+          "email": {
+            "type": "string",
+            "description": "The customer email from lookup_appointment"
+          },
+          "service_type": {
+            "type": "string",
+            "description": "The service type from lookup_appointment"
+          },
+          "phone": {
+            "type": "string",
+            "description": "The customer phone from lookup_appointment"
+          },
+          "date": {
+            "type": "string",
+            "description": "The appointment date from lookup_appointment"
+          },
+          "time": {
+            "type": "string",
+            "description": "The appointment time from lookup_appointment"
+          }
+        },
+        "required": ["record_id", "customer", "reservation_id", "email", "service_type", "phone", "date", "time"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "end_call",
+      "description": "End the current call. Use when the caller says goodbye or has no more questions.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "transfer_to_human",
+      "description": "Transfer the caller to a live staff member. Use when the caller explicitly asks for a real person, has billing disputes, complaints, or complex clinical questions.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Brief description of why the transfer is needed"
+          }
+        },
+        "required": ["reason"]
+      }
+    }
+  }
+]
