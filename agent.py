@@ -369,6 +369,7 @@ async def cancel_appointment(
     record_id: str,
     customer: str,
     reservation_id: str,
+    email: str,
     service_type: str,
     phone: str,
     date: str,
@@ -381,6 +382,7 @@ async def cancel_appointment(
         record_id: The appointment record id from lookup_appointment
         customer: The customer full name from lookup_appointment
         reservation_id: The reservation id from lookup_appointment
+        email: The customer email from lookup_appointment
         service_type: The service type from lookup_appointment
         phone: The customer phone from lookup_appointment
         date: The appointment date from lookup_appointment
@@ -393,6 +395,7 @@ async def cancel_appointment(
         "record_id": record_id,
         "customer": customer,
         "reservation_id": reservation_id,
+        "email": email,
         "service_type": service_type,
         "phone": phone,
         "date": date,

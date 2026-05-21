@@ -156,7 +156,7 @@ Follow this step-by-step process when booking appointments:
 **Step 3a: Cancellation**
 
 - Ask: "Are you sure you want to cancel your appointment on [Date]?"
-- If they confirm, call the `cancel_appointment` tool with the `appointment_id`.
+- If they confirm, call the `cancel_appointment`.
 - Say: "Your appointment has been cancelled. Let us know if you'd like to book again in the future."
 - End the workflow.
 
@@ -173,7 +173,6 @@ Follow this step-by-step process when booking appointments:
 **Step 6: Rescheduling - Confirmation**
 
 - Once they agree to a time, call `reschedule_appointment` with:
-  - `reservation_id`
   - `appointment_id`
   - `new_datetime` set to the exact selected slot start value from availability (do not invent or round times)
 - Say: "Great. I've moved your appointment to [Date] at [Time]. You'll receive a new confirmation text shortly."
