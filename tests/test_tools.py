@@ -74,29 +74,26 @@ class TestCreateAppointment:
     @respx.mock
     async def test_successful_booking(self):
         """Successful webhook POST returns confirmation message."""
-        from agent import create_appointment, APPOINTMENT_WEBHOOK_URL
+        from agent import create_appointment
 
-        # Only run if webhook URL is configured
-        if not APPOINTMENT_WEBHOOK_URL:
-            pytest.skip("APPOINTMENT_WEBHOOK_URL not configured")
+        with patch("agent.APPOINTMENT_WEBHOOK_URL", "https://test.example.com/hook"):
+            respx.post("https://test.example.com/hook").mock(
+                return_value=httpx.Response(200, json={"success": True})
+            )
 
-        respx.post(APPOINTMENT_WEBHOOK_URL).mock(
-            return_value=httpx.Response(200, json={"success": True})
-        )
+            result = await create_appointment.handler(
+                full_name="John Smith",
+                phone="3055551234",
+                email="john@example.com",
+                is_new_customer=True,
+                service_type="Routine Checkup",
+                scheduled_at="2026-06-15T10:00",
+                reason="Regular cleaning",
+                urgency="Low",
+            )
 
-        result = await create_appointment.handler(
-            full_name="John Smith",
-            phone="3055551234",
-            email="john@example.com",
-            is_new_customer=True,
-            service_type="Routine Checkup",
-            scheduled_at="2026-06-15T10:00",
-            reason="Regular cleaning",
-            urgency="Low",
-        )
-
-        assert "John Smith" in result
-        assert "successfully scheduled" in result.lower()
+            assert "John Smith" in result
+            assert "successfully scheduled" in result.lower()
 
     @respx.mock
     async def test_webhook_500_error(self):
@@ -310,7 +307,14 @@ class TestCancelAppointment:
             )
 
             result = await cancel_appointment.handler(
-                appointment_id="APT-001",
+                record_id="REC-001",
+                customer="John Smith",
+                reservation_id="RES-001",
+                email="john@example.com",
+                service_type="Routine Checkup",
+                phone="3055551234",
+                date="2026-06-15",
+                time="10:00 AM",
             )
 
             assert "cancelled" in result.lower()
@@ -325,7 +329,14 @@ class TestCancelAppointment:
             )
 
             result = await cancel_appointment.handler(
-                appointment_id="APT-001",
+                record_id="REC-001",
+                customer="Jane Doe",
+                reservation_id="RES-002",
+                email="jane@example.com",
+                service_type="Teeth Whitening",
+                phone="3055559999",
+                date="2026-07-01",
+                time="2:00 PM",
             )
 
             assert "failed" in result.lower() or "unable" in result.lower()

@@ -136,7 +136,7 @@ async def check_availability(
         return (
             "Availability checking is not configured. "
             "Please confirm the appointment is during business hours "
-            "(Monday-Friday, 9:30 AM - 5:00 PM) and proceed with booking."
+            "(Monday-Thursday, 9:00 AM - 5:30 PM; Friday, 9:00 AM - 4:30 PM) and proceed with booking."
         )
 
     params = {
@@ -297,6 +297,7 @@ async def lookup_appointment(
                                  f"record_id={apt.get('record_id')}, "
                                  f"reservation_id={apt.get('reservation_id')}, "
                                  f"customer={apt.get('customer')}, "
+                                 f"email={apt.get('email')}, "
                                  f"service_type={apt.get('service_type')}, "
                                  f"phone={apt.get('phone')}, "
                                  f"date={apt.get('date')}, "
@@ -309,6 +310,7 @@ async def lookup_appointment(
                              f"record_id={item.get('record_id')}, "
                              f"reservation_id={item.get('reservation_id')}, "
                              f"customer={item.get('customer')}, "
+                             f"email={item.get('email')}, "
                              f"service_type={item.get('service_type')}, "
                              f"phone={item.get('phone')}, "
                              f"date={item.get('date')}, "
@@ -522,7 +524,8 @@ async def my_agent(ctx: agents.JobContext):
         from opentelemetry import trace as otel_trace
         span = otel_trace.get_current_span()
         if span and span.is_recording():
-            span.set_attribute("caller.phone", caller_phone)
+            phone_suffix = caller_phone[-4:] if caller_phone and caller_phone != "unknown" else "unknown"
+            span.set_attribute("caller.phone_suffix", phone_suffix)
             span.set_attribute("caller.channel", channel)
             span.set_attribute("livekit.room", ctx.room.name or "")
     except Exception:
