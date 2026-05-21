@@ -470,16 +470,16 @@ async def my_agent(ctx: agents.JobContext):
         stt=[
             deepgram.STT(model="nova-3"),
         ],
-        attempt_timeout=10.0,
+        attempt_timeout=5.0,
         max_retry_per_stt=1,
     )
 
     fallback_llm = llm_mod.FallbackAdapter(
         llm=[
-            google.LLM(model="gemini-3-flash-preview"),
             openai.LLM(model="gpt-4.1-mini"),
+            google.LLM(model="gemini-3-flash-preview")     
         ],
-        attempt_timeout=10.0,
+        attempt_timeout=5.0,
         max_retry_per_llm=1,
     )
 
@@ -521,8 +521,8 @@ async def my_agent(ctx: agents.JobContext):
 
     # --- Metrics collection ---
     @session.on("metrics_collected")
-    def _on_metrics(ev: metrics.AgentMetrics):
-        metrics.log_metrics(ev)
+    def _on_metrics(ev):
+        metrics.log_metrics(ev.metrics)
 
 
 
